@@ -33,9 +33,24 @@ async function run() {
 
 
     const menuCollections =client.db("bisrtoDB").collection("menu")
+    const cartCollections =client.db("bisrtoDB").collection("cart")
 
     app.get("/menu" , async (req , res ) => {
       const result = await menuCollections.find().toArray()
+      res.send(result)
+    })
+
+    //cart related api 
+
+    app.get('/cart' , async( req, res) => {
+      const result = await cartCollections.find().toArray()
+      res.send(result)
+    })
+
+    app.post('/cart' , async (req , res) => {
+      const item = req.body;
+      console.log(item);
+      const result = await cartCollections.insertOne(item)
       res.send(result)
     })
 
