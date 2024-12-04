@@ -32,6 +32,7 @@ async function run() {
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
 
+    const userCollections =client.db("bisrtoDB").collection("user")
     const menuCollections =client.db("bisrtoDB").collection("menu")
     const cartCollections =client.db("bisrtoDB").collection("cart")
 
@@ -50,6 +51,13 @@ async function run() {
    
     })
 
+    app.post('/user' , async(req , res) => {
+      const user = req.body;
+      console.log(user);
+      const result = await userCollections.insertOne(user);
+      res.send(result)
+    })
+
     app.post('/cart' , async (req , res) => {
       const item = req.body;
       const result = await cartCollections.insertOne(item)
@@ -58,7 +66,6 @@ async function run() {
 
     app.delete('/cart/:id' , async(req , res ) => {
       const id = req.params.id;
-      console.log(id);
       const query = {_id : new ObjectId(id)}
       const result = await cartCollections.deleteOne(query);
       res.send(result)
