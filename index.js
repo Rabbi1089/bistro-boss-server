@@ -4,7 +4,7 @@ require("dotenv").config();
 const cors = require("cors");
 const app = express();
 const port = process.env.port || 5000;
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
 app.use(cors());
 app.use(express.json());
@@ -36,40 +36,41 @@ async function run() {
     const cartCollections = client.db("bisrtoDB").collection("cart");
 
     //jwt
-
-    app.post('/jwt' , async (req, res ) => {
+    app.post("/jwt", async (req, res) => {
       const user = req.body;
-      console.log(user);
-      const token = jwt.sign(user, process.env.token_secret, { expiresIn: '1h' });
-      res.send({token})
-    })
-
-
-
+      const token = jwt.sign(user, process.env.token_secret, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
 
     //middleware
-    const verifyToken = (req, res , next ) => {
-      console.log('inside verify token' , req.headers.authorization)
-
+    const verifyToken = (req, res, next) => {
       if (!req.headers.authorization) {
-        return res.status(401).send({message : 'forbidden access'})
+        return res.status(401).send({ message: "Unauthorized  access" });
       }
-      const token = req.headers.authorization.split(' ')[1]
-      console.log(' token' ,token)
+      const token = req.headers.authorization.split(" ")[1];
       // verify a token symmetric
-jwt.verify(token, process.env.token_secret, (err, decoded) =>{
-  if (err) {
-    return res.status(401).send({message : 'forbidden access'})
+      jwt.verify(token, process.env.token_secret, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "Unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
 
-  }
-  req.decoded = decoded;
-  console.log('decode is', req.decoded);
-  next()
-});
-    }
-
-
-
+    //check if user is admin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollections.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
 
     app.get("/menu", async (req, res) => {
       const result = await menuCollections.find().toArray();
@@ -77,7 +78,6 @@ jwt.verify(token, process.env.token_secret, (err, decoded) =>{
     });
 
     //cart related api
-
     app.get("/cart", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
@@ -99,14 +99,27 @@ jwt.verify(token, process.env.token_secret, (err, decoded) =>{
     });
 
     //user related api
-
-    app.get("/user",verifyToken, async (req, res) => {
-     console.log(req.headers);
+    app.get("/user", verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollections.find().toArray();
       res.send(result);
     });
 
-    app.patch("/user/admin/:id", async (req, res) => {
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.send.status(403).send({ message: "forbidden access" });
+      }
+
+      const query = { email: email };
+      const user = await userCollections.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
+
+    app.patch("/user/admin/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -118,7 +131,7 @@ jwt.verify(token, process.env.token_secret, (err, decoded) =>{
       res.send(result);
     });
 
-    app.delete("/user/:id", async (req, res) => {
+    app.delete("/user/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollections.deleteOne(query);
@@ -129,7 +142,7 @@ jwt.verify(token, process.env.token_secret, (err, decoded) =>{
       const user = req.body;
       //console.log(user);
       const query = { email: user.email };
-   
+
       const isExists = await userCollections.findOne(query);
       if (isExists) {
         return res.send({
