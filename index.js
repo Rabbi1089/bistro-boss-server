@@ -4,6 +4,7 @@ require("dotenv").config();
 const cors = require("cors");
 const app = express();
 const port = process.env.port || 5000;
+const jwt = require('jsonwebtoken');
 
 app.use(cors());
 app.use(express.json());
@@ -34,6 +35,42 @@ async function run() {
     const menuCollections = client.db("bisrtoDB").collection("menu");
     const cartCollections = client.db("bisrtoDB").collection("cart");
 
+    //jwt
+
+    app.post('/jwt' , async (req, res ) => {
+      const user = req.body;
+      console.log(user);
+      const token = jwt.sign(user, process.env.token_secret, { expiresIn: '1h' });
+      res.send({token})
+    })
+
+
+
+
+    //middleware
+    const verifyToken = (req, res , next ) => {
+      console.log('inside verify token' , req.headers.authorization)
+
+      if (!req.headers.authorization) {
+        return res.status(401).send({message : 'forbidden access'})
+      }
+      const token = req.headers.authorization.split(' ')[1]
+      console.log(' token' ,token)
+      // verify a token symmetric
+jwt.verify(token, process.env.token_secret, (err, decoded) =>{
+  if (err) {
+    return res.status(401).send({message : 'forbidden access'})
+
+  }
+  req.decoded = decoded;
+  console.log('decode is', req.decoded);
+  next()
+});
+    }
+
+
+
+
     app.get("/menu", async (req, res) => {
       const result = await menuCollections.find().toArray();
       res.send(result);
@@ -63,14 +100,14 @@ async function run() {
 
     //user related api
 
-    app.get("/user", async (req, res) => {
+    app.get("/user",verifyToken, async (req, res) => {
+     console.log(req.headers);
       const result = await userCollections.find().toArray();
       res.send(result);
     });
 
     app.patch("/user/admin/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
@@ -78,13 +115,11 @@ async function run() {
         },
       };
       const result = await userCollections.updateOne(query, updateDoc);
-      console.log(result);
       res.send(result);
     });
 
     app.delete("/user/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await userCollections.deleteOne(query);
       res.send(result);
@@ -94,7 +129,7 @@ async function run() {
       const user = req.body;
       //console.log(user);
       const query = { email: user.email };
-      console.log("from user query", query);
+   
       const isExists = await userCollections.findOne(query);
       if (isExists) {
         return res.send({
