@@ -119,7 +119,6 @@ async function run() {
       if (email !== req.decoded.email) {
         return res.send.status(403).send({ message: "forbidden access" });
       }
-
       const query = { email: email };
       const user = await userCollections.findOne(query);
       let admin = false;
